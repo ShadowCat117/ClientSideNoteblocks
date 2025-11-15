@@ -57,6 +57,9 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
 
     private double lastMaxTimeToServerSound = 0;
 
+
+    public static String namespace = "clientsidenoteblocks";
+    public static KeyBinding.Category keybindCategory = KeyBinding.Category.create(Identifier.of(namespace, "keybinds"));
     @Override
     public void onInitializeClient() {
         AutoConfig.register(ModConfig.class, GsonConfigSerializer::new);
@@ -65,7 +68,7 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
         NOTEBLOCK_SOUNDS_TO_CANCEL = new SelfExpiringHashMap<>((long) (config.maxTimeToServerSound * 1000), 100);
 
 
-        KeyBinding toggleKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding("Toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_BRACKET, "Client Side Noteblocks"));
+        KeyBinding toggleKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding("Toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_BRACKET, keybindCategory));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (toggleKeybind.wasPressed()) {
@@ -91,7 +94,7 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
             }
             
             if (!isEnabled()) return ActionResult.PASS;
-            if (world.isClient && !player.isCreative() && !player.isSpectator()
+            if (world.isClient() && !player.isCreative() && !player.isSpectator()
                     && world.getBlockState(pos).getBlock().getClass() == NoteBlock.class) {
                 BlockState state = world.getBlockState(pos);
 
