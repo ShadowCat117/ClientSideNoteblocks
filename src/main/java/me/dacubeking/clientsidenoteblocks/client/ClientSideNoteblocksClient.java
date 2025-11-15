@@ -127,9 +127,9 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
 
                     synchronized (NOTEBLOCK_SOUNDS_TO_CANCEL_LOCK) {
                         if (NOTEBLOCK_SOUNDS_TO_CANCEL.containsKey(pos)) {
-                            NOTEBLOCK_SOUNDS_TO_CANCEL.get(pos).addAndGet(2);
+                            NOTEBLOCK_SOUNDS_TO_CANCEL.get(pos).addAndGet(1);
                         } else {
-                            NOTEBLOCK_SOUNDS_TO_CANCEL.put(pos, new AtomicInteger(2));
+                            NOTEBLOCK_SOUNDS_TO_CANCEL.put(pos, new AtomicInteger(1));
                         }
                     }
                 }

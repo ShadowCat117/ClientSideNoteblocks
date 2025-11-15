@@ -59,13 +59,13 @@ public abstract class ClientWorldMixin extends World implements ClientWorldInter
                     amount.getAndUpdate(i -> {
                         if (i > 0) {
                             if (ClientSideNoteblocksClient.isDebug()) {
-                                ClientSideNoteblocksClient.LOGGER.info("Cancelled server note block sound");
+                                ClientSideNoteblocksClient.LOGGER.info("Cancelled server note block sound. Remaining: " + i);
                             }
                             ci.cancel();
                             return i - 1;
                         } else {
                             if (ClientSideNoteblocksClient.isDebug()) {
-                                ClientSideNoteblocksClient.LOGGER.info("Detected an extra server note block sound");
+                                ClientSideNoteblocksClient.LOGGER.info("Detected an extra server note block sound. Remaining:" + i);
                             }
                             if (ClientSideNoteblocksClient.shouldCancelStraySounds()) {
                                 ci.cancel();
