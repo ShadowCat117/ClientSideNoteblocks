@@ -1,7 +1,7 @@
 package me.dacubeking.clientsidenoteblocks.client;
 
 import me.dacubeking.clientsidenoteblocks.expiringmap.SelfExpiringHashMap;
-import me.dacubeking.clientsidenoteblocks.mixininterfaces.ClientWorldInterface;
+import me.dacubeking.clientsidenoteblocks.mixininterfaces.ClientLevelInterface;
 import me.dacubeking.clientsidenoteblocks.mixininterfaces.NoteblockInterface;
 import me.shedaniel.autoconfig.AutoConfig;
 import me.shedaniel.autoconfig.serializer.GsonConfigSerializer;
@@ -9,28 +9,29 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.NoteBlock;
-import net.minecraft.block.enums.NoteBlockInstrument;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.block.NoteBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
-import static net.minecraft.block.NoteBlock.INSTRUMENT;
-import static net.minecraft.block.NoteBlock.NOTE;
+import static net.minecraft.world.level.block.NoteBlock.INSTRUMENT;
+import static net.minecraft.world.level.block.NoteBlock.NOTE;
+
+import com.mojang.blaze3d.platform.InputConstants;
 
 @Environment(EnvType.CLIENT)
 public class ClientSideNoteblocksClient implements ClientModInitializer {
@@ -59,7 +60,7 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
 
 
     public static String namespace = "clientsidenoteblocks";
-    public static KeyBinding.Category keybindCategory = KeyBinding.Category.create(Identifier.of(namespace, "keybinds"));
+    public static KeyMapping.Category keybindCategory = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(namespace, "keybinds"));
     @Override
     public void onInitializeClient() {
         AutoConfig.register(ModConfig.class, GsonConfigSerializer::new);
@@ -68,20 +69,20 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
         NOTEBLOCK_SOUNDS_TO_CANCEL = new SelfExpiringHashMap<>((long) (config.maxTimeToServerSound * 1000), 100);
 
 
-        KeyBinding toggleKeybind = KeyBindingHelper.registerKeyBinding(new KeyBinding("Toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_BRACKET, keybindCategory));
+        KeyMapping toggleKeybind = KeyMappingHelper.registerKeyMapping(new KeyMapping("Toggle", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_BRACKET, keybindCategory));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (toggleKeybind.wasPressed()) {
+            while (toggleKeybind.consumeClick()) {
                 if (client.player == null) return;
 
                 config.enabled = !config.enabled;
                 if (config.enabled) {
-                    client.player.sendMessage(Text.translatableWithFallback("text.clientsidenoteblocks.chat.enabled",
-                            "ClientSideNoteblocks is Enabled"), false);
+                    client.player.sendSystemMessage(Component.translatableWithFallback("text.clientsidenoteblocks.chat.enabled",
+                            "ClientSideNoteblocks is Enabled"));
 
                 } else {
-                    client.player.sendMessage(Text.translatableWithFallback("text.clientsidenoteblocks.chat.disabled",
-                            "ClientSideNoteblocks is Disabled"), false);
+                    client.player.sendSystemMessage(Component.translatableWithFallback("text.clientsidenoteblocks.chat.disabled",
+                            "ClientSideNoteblocks is Disabled"));
                 }
             }
         });
@@ -93,21 +94,21 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
                 LOGGER.info("Max time to server sound changed to " + lastMaxTimeToServerSound);
             }
             
-            if (!isEnabled()) return ActionResult.PASS;
-            if (world.isClient() && !player.isCreative() && !player.isSpectator()
+            if (!isEnabled()) return InteractionResult.PASS;
+            if (world.isClientSide() && !player.isCreative() && !player.isSpectator()
                     && world.getBlockState(pos).getBlock().getClass() == NoteBlock.class) {
                 BlockState state = world.getBlockState(pos);
 
-                if (MinecraftClient.getInstance().world != null &&
-                        (state.get(INSTRUMENT).isNotBaseBlock() || world.getBlockState(pos.up()).isAir())) {
-                    ClientWorldInterface clientWorldInterface = ((ClientWorldInterface) MinecraftClient.getInstance().world);
+                if (Minecraft.getInstance().level != null &&
+                        (state.getValue(INSTRUMENT).worksAboveNoteBlock() || world.getBlockState(pos.above()).isAir())) {
+                    ClientLevelInterface clientLevelInterface = ((ClientLevelInterface) Minecraft.getInstance().level);
 
-                    RegistryEntry<SoundEvent> registryEntry;
+                    Holder<SoundEvent> registryEntry;
                     float f;
-                    NoteBlockInstrument instrument = state.get(INSTRUMENT);
-                    if (instrument.canBePitched()) {
-                        int i = state.get(NOTE);
-                        f = NoteBlock.getNotePitch(i);
+                    NoteBlockInstrument instrument = state.getValue(INSTRUMENT);
+                    if (instrument.isTunable()) {
+                        int i = state.getValue(NOTE);
+                        f = NoteBlock.getPitchFromNote(i);
                     } else {
                         f = 1.0f;
                     }
@@ -115,14 +116,14 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
                     if (instrument.hasCustomSound()) {
                         Identifier identifier = ((NoteblockInterface) state.getBlock()).clientSideNoteblocks$getCustomSoundPublic(world, pos);
                         if (identifier == null) {
-                            return ActionResult.PASS;
+                            return InteractionResult.PASS;
                         }
-                        registryEntry = RegistryEntry.of(SoundEvent.of(identifier));
+                        registryEntry = Holder.direct(SoundEvent.createVariableRangeEvent(identifier));
                     } else {
-                        registryEntry = instrument.getSound();
+                        registryEntry = instrument.getSoundEvent();
                     }
 
-                    clientWorldInterface.clientSideNoteblocks$bypassedPlaySound(null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, registryEntry, SoundCategory.RECORDS, 3.0f, f, world.random.nextLong());
+                    clientLevelInterface.clientSideNoteblocks$bypassedPlaySound(null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, registryEntry, SoundSource.RECORDS, 3.0f, f, world.getRandom().nextLong());
 
 
                     synchronized (NOTEBLOCK_SOUNDS_TO_CANCEL_LOCK) {
@@ -136,7 +137,7 @@ public class ClientSideNoteblocksClient implements ClientModInitializer {
 
 
             }
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         });
     }
 }
