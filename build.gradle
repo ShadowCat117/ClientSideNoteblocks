@@ -14,15 +14,15 @@ repositories {
     // for more information about repositories.
 
     maven {
-        url "https://maven.terraformersmc.com/releases";
+        url = "https://maven.terraformersmc.com/releases"
     }
-    maven { url "https://maven.shedaniel.me/" }
+    maven { url = "https://maven.shedaniel.me/" }
 }
 
 configurations {
     includeImplementation
 
-    include.extendsFrom mincludeImplementation
+    include.extendsFrom includeImplementation
     implementation.extendsFrom includeImplementation
 }
 
@@ -60,10 +60,11 @@ base {
 }
 
 processResources {
-    inputs.property "version", project.version
+    def modVersion = project.version
+    inputs.property "version", modVersion
 
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand "version": modVersion
     }
 }
 
